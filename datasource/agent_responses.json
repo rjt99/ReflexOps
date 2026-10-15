@@ -1,0 +1,101 @@
+{
+  "pipelines": {
+
+    "ALT-002": {
+      "trigger_name": "Log Volume Anomaly Detected",
+      "description": "4-agent pipeline: Detect → Correlate → Diagnose → Recommend",
+      "agents": [
+        {
+          "name": "Detect",
+          "icon": "🔍",
+          "role": "Anomaly Detection & Baseline Analysis",
+          "what": "Comparing current write_rate_mbps against 6-hour rolling baseline to confirm anomaly, compute deviation, and project disk fill time.",
+          "chunks": [
+            "Loading 6-hour rolling baseline for /var/log write_rate_mbps...",
+            "Baseline avg: 2.1 mbps, stddev: 0.18 mbps. Current value: 28.3 mbps.",
+            "Deviation: 146σ above baseline. This is not noise — confirmed anomaly.",
+            "Disk fill projection: (500 - 207) GB ÷ (28.3 MB/s × 60) ≈ 173 minutes at current rate.",
+            "Threshold crossed: WARNING (≥ 2× baseline). Firing anomaly event downstream."
+          ],
+          "output": "ANOMALY FIRED — severity=WARNING, metric=write_rate_mbps, deviation=146σ, eta_disk_full≈173min"
+        },
+        {
+          "name": "Correlate",
+          "icon": "🔗",
+          "role": "Signal Correlation & Fingerprinting",
+          "what": "Scanning ±15 min event window for deployments, config changes, and cross-service signals to build a causal fingerprint.",
+          "chunks": [
+            "Opening time window ±15 min around anomaly (01:03 → 01:33)...",
+            "Found: order-service v2.1.4 deployed at 01:14 — 4 minutes before spike.",
+            "Config diff for v2.1.4: log.level INFO → DEBUG. Known production risk flag.",
+            "Other services (payment, auth, checkout) log volumes all NORMAL — spike is isolated.",
+            "Correlation score: 0.94. Building event fingerprint."
+          ],
+          "output": "Fingerprint: { deploy:v2.1.4, Δconfig:log.level=DEBUG, volume_ratio:40x, time_delta:4min, downstream_risk:2 services }"
+        },
+        {
+          "name": "Diagnose",
+          "icon": "🧠",
+          "role": "Root Cause Analysis",
+          "what": "Scoring root cause hypotheses against the correlation fingerprint using historical incident patterns and evidence weights.",
+          "chunks": [
+            "Analyzing fingerprint against pattern library (312 historical incidents)...",
+            "Pattern match: debug_log_in_production — 3 similar incidents in last 90 days. Avg resolution: 47 min.",
+            "Hypothesis 1 [debug_log_in_production]: deploy_delta=4min ✓, config_change=TRUE ✓, volume_ratio=40x ✓ → 89% confidence.",
+            "Hypothesis 2 [connection_pool_leak]: pool metrics normal, no exhaustion signals → 8%.",
+            "Hypothesis 3 [traffic_spike]: request rate unchanged at 01:18 → ruled out → 3%."
+          ],
+          "output": "Root cause (89% confidence): order-service v2.1.4 deployed with log.level=DEBUG in production. 40x log amplification ongoing."
+        },
+        {
+          "name": "Recommend",
+          "icon": "💡",
+          "role": "Action Planning & Guardrail Evaluation",
+          "what": "Mapping the confirmed root cause to runbooks, evaluating each action against guardrail policies, and producing a ranked action plan.",
+          "chunks": [
+            "Loading runbooks for pattern: debug_log_in_production...",
+            "Action 1 — Log rotation: risk=LOW, buys ~96 min relief. Guardrail: PASS → AUTO-EXECUTE.",
+            "Action 2 — Change log.level to INFO via config API: risk=MEDIUM (live config push). REQUIRES APPROVAL.",
+            "Action 3 — Rollback to v2.1.3: risk=HIGH (affects checkout + notifications). REQUIRES APPROVAL.",
+            "Action 4 — Page carol@company.com (order-team on-call): risk=NONE. Guardrail: PASS → AUTO-EXECUTE."
+          ],
+          "output": "[AUTO] Log rotation | [AUTO] Page carol@company.com | [APPROVAL] Change log.level=INFO | [APPROVAL] Rollback v2.1.4→v2.1.3"
+        }
+      ]
+    },
+
+    "ALT-008": {
+      "trigger_name": "Rotation Ineffective — Root Cause Still Active",
+      "description": "Re-analysis pipeline: Diagnose updates prognosis, Recommend escalates",
+      "agents": [
+        {
+          "name": "Diagnose",
+          "icon": "🧠",
+          "role": "Updated Root Cause Prognosis",
+          "what": "Re-running diagnosis with updated context: rotation failed, on-call not responding, time window shrinking.",
+          "chunks": [
+            "Re-running with updated context: rotation failed, on-call silent for 17 min.",
+            "Root cause [debug_log_in_production] still active — no config change applied.",
+            "Time remaining before disk full: ~47 minutes. Downstream services at risk.",
+            "Escalating severity from HIGH to CRITICAL. Only config change or rollback resolves this."
+          ],
+          "output": "CRITICAL: Root cause unresolved. ~47 min to disk full. Immediate human action required."
+        },
+        {
+          "name": "Recommend",
+          "icon": "💡",
+          "role": "Escalated Action Plan",
+          "what": "Updating the action plan given rotation failure and no acknowledgement — escalating urgency and contacts.",
+          "chunks": [
+            "Removing log rotation (already done, ineffective). Updating plan...",
+            "Config change risk re-rated: MEDIUM → CRITICAL-PRIORITY given 47-min window.",
+            "Escalating on-call: carol (no ACK) → dave@company.com + alice@company.com (platform).",
+            "Rollback package for v2.1.3 prepared and ready for immediate execution on ACK."
+          ],
+          "output": "[ESCALATED] Page dave + alice | [CRITICAL] Config log.level=INFO | [READY] Rollback v2.1.3 package prepared"
+        }
+      ]
+    }
+
+  }
+}

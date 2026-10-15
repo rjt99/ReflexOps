@@ -1,0 +1,79 @@
+{
+  "services": [
+    {
+      "name": "order-service",
+      "criticality": "critical",
+      "owner_team": "order-team",
+      "on_call_primary": "carol@company.com",
+      "on_call_secondary": "dave@company.com",
+      "depends_on": ["payment-service"],
+      "depended_by": ["checkout-service", "notification-service"],
+      "current_version": "v2.1.4",
+      "log_volume_baseline_lpm": 1200,
+      "disk_volume": "/var/log"
+    },
+    {
+      "name": "payment-service",
+      "criticality": "critical",
+      "owner_team": "payments-team",
+      "on_call_primary": "frank@company.com",
+      "on_call_secondary": "grace@company.com",
+      "depends_on": [],
+      "depended_by": ["order-service"],
+      "current_version": "v1.9.0",
+      "log_volume_baseline_lpm": 1100,
+      "disk_volume": "/var/log"
+    },
+    {
+      "name": "auth-service",
+      "criticality": "critical",
+      "owner_team": "platform-team",
+      "on_call_primary": "alice@company.com",
+      "on_call_secondary": "bob@company.com",
+      "depends_on": [],
+      "depended_by": ["order-service", "payment-service", "checkout-service"],
+      "current_version": "v3.2.1",
+      "log_volume_baseline_lpm": 900,
+      "disk_volume": "/var/log"
+    },
+    {
+      "name": "checkout-service",
+      "criticality": "critical",
+      "owner_team": "frontend-team",
+      "on_call_primary": "henry@company.com",
+      "on_call_secondary": "iris@company.com",
+      "depends_on": ["order-service", "auth-service"],
+      "depended_by": [],
+      "current_version": "v1.5.2",
+      "log_volume_baseline_lpm": 800,
+      "disk_volume": "/var/log"
+    },
+    {
+      "name": "notification-service",
+      "criticality": "high",
+      "owner_team": "platform-team",
+      "on_call_primary": "alice@company.com",
+      "on_call_secondary": "bob@company.com",
+      "depends_on": ["order-service"],
+      "depended_by": [],
+      "current_version": "v2.0.1",
+      "log_volume_baseline_lpm": 500,
+      "disk_volume": "/var/log"
+    }
+  ],
+  "disk_volumes": [
+    {
+      "path": "/var/log",
+      "total_gb": 500,
+      "retention_days": 7,
+      "rotation_schedule": "daily_03:00",
+      "last_rotated": "00:30"
+    }
+  ],
+  "on_call_roster": [
+    {"team": "platform-team",  "primary": "alice@company.com", "secondary": "bob@company.com",   "escalation_min": 15},
+    {"team": "order-team",     "primary": "carol@company.com", "secondary": "dave@company.com",   "escalation_min": 15},
+    {"team": "payments-team",  "primary": "frank@company.com", "secondary": "grace@company.com",  "escalation_min": 15},
+    {"team": "frontend-team",  "primary": "henry@company.com", "secondary": "iris@company.com",   "escalation_min": 15}
+  ]
+}
